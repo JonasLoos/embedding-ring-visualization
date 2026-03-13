@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embedding Ring</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #08080c;
+    --bg2: #0e0e16;
+    --bg3: #14141e;
+    --cell-bg: #0b0b14;
+    --surface: #181826;
+    --border: #252540;
+    --border-hi: #3a3a5c;
+    --text: #d8d8ee;
+    --text-dim: #6a6a8a;
+    --accent: #00e09a;
+    --accent2: #00aaff;
+    --accent3: #ff5588;
+    --warn: #ffaa22;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .topbar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .topbar .sep { color: var(--border); font-size: 18px; }
+  .topbar .desc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ── TOP SECTION ── */
+  .top-section {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    max-height: 320px;
+  }
+
+  /* Preview */
+  .preview-panel {
+    width: 280px;
+    padding: 14px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .preview-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--cell-bg);
+  }
+  .preview-wrap canvas { width: 100% !important; height: 100% !important; }
+  .angle-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+  .preview-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* Frames grid */
+  .frames-panel {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .frames-panel .panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .frames-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 3px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .frame-thumb {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.12s;
+    background: var(--cell-bg);
+    position: relative;
+  }
+  .frame-thumb:hover { border-color: var(--accent2); }
+  .frame-thumb.active { border-color: var(--accent); }
+  .frame-thumb.highlighted { border-color: var(--accent3); box-shadow: 0 0 8px rgba(255,85,136,0.4); }
+  .frame-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frame-thumb .frame-angle {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* Controls */
+  .controls-panel {
+    width: 260px;
+    padding: 14px;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .ctrl-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .btn-row { display: flex; gap: 4px; }
+  .btn-sm {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-align: center;
+  }
+  .btn-sm:hover { border-color: var(--accent2); color: var(--text); }
+  .btn-sm.active { border-color: var(--accent); color: var(--accent); background: rgba(0,224,154,0.06); }
+
+  .model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .model-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.12s;
+    background: var(--bg3);
+    font-size: 11px;
+  }
+  .model-item:hover { border-color: var(--accent2); }
+  .model-item.sel { border-color: var(--accent); background: rgba(0,224,154,0.06); }
+  .model-item .ck {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 9px;
+    transition: all 0.12s;
+  }
+  .model-item.sel .ck { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+  .model-item .mname {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .model-item .msize {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .model-item .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: none;
+  }
+  .status-dot.done { display: block; background: var(--accent); }
+  .status-dot.run { display: block; background: var(--warn); animation: pulse 0.8s infinite; }
+  .status-dot.err { display: block; background: var(--accent3); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+
+  .run-btn {
+    padding: 10px;
+    border-radius: 7px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: var(--bg);
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .run-btn:hover { box-shadow: 0 4px 20px rgba(0,224,154,0.3); transform: translateY(-1px); }
+  .run-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .progress-wrap { display: none; }
+  .progress-wrap.vis { display: block; }
+  .progress-track { height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; width: 0%; transition: width 0.3s; }
+  .progress-txt { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-dim); }
+
+  .log-area {
+    max-height: 60px;
+    overflow-y: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    padding: 4px;
+    background: var(--bg);
+    border-radius: 4px;
+    margin-top: 4px;
+  }
+  .log-area .i { color: var(--accent2); }
+  .log-area .s { color: var(--accent); }
+  .log-area .e { color: var(--accent3); }
+
+  /* ── RESULTS GRID ── */
+  .results-section {
+    flex: 1;
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 300px; color: var(--text-dim); text-align: center; gap: 8px;
+  }
+  .empty-state .big { font-size: 40px; opacity: 0.15; }
+  .empty-state p { font-size: 13px; max-width: 380px; line-height: 1.6; }
+
+  .results-table {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+  }
+  .results-table .corner {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px 0 0 0;
+  }
+  .results-table .col-header {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 8px 4px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .results-table .col-header .score {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 400;
+    display: block;
+    margin-top: 2px;
+  }
+  .results-table .row-header {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    justify-content: center;
+    min-width: 36px;
+  }
+  .results-table .viz-cell {
+    background: var(--cell-bg);
+    border: 1px solid var(--border);
+    aspect-ratio: 1;
+    position: relative;
+    cursor: grab;
+    min-height: 200px;
+  }
+  .viz-cell:active { cursor: grabbing; }
+  .viz-cell canvas { width: 100% !important; height: 100% !important; display: block; }
+
+  @media (max-width: 900px) {
+    .top-section { grid-template-columns: 1fr; max-height: none; }
+    .preview-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    .controls-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Embedding Ring</h1>
+  <span class="sep">|</span>
+  <span class="desc">3D object → render N frames → vision embeddings → dim reduction → does it form a ring?</span>
+</div>
+
+<div class="top-section">
+  <div class="preview-panel">
+    <div class="preview-wrap" id="previewWrap">
+      <div class="angle-badge" id="angleBadge">0°</div>
+      <canvas id="previewCanvas"></canvas>
+    </div>
+    <div class="preview-label">auto-rotating · hover to pause</div>
+  </div>
+
+  <div class="frames-panel">
+    <div class="panel-label">Rendered Frames</div>
+    <div class="frames-grid" id="framesGrid">
+      <div style="color:var(--text-dim);font-size:11px;grid-column:1/-1;text-align:center;padding:40px 0;">
+        Click ▶ Render &amp; Encode to generate frames
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-panel">
+    <div>
+      <div class="ctrl-label">Object</div>
+      <div class="btn-row" id="objSelect">
+        <div class="btn-sm active" data-v="creature">Creature</div>
+        <div class="btn-sm" data-v="teapot">Teapot</div>
+        <div class="btn-sm" data-v="knot">Knot</div>
+      </div>
+    </div>
+    <div>
+      <div class="ctrl-label">Frames</div>
+      <div class="btn-row" id="frameSelect">
+        <div class="btn-sm" data-v="12">12</div>
+        <div class="btn-sm active" data-v="24">24</div>
+        <div class="btn-sm" data-v="36">36</div>
+      </div>
+    </div>
+    <div>
+      <div class="ctrl-label">Models</div>
+      <div class="model-list" id="modelList"></div>
+    </div>
+    <button class="run-btn" id="runBtn">▶ Render &amp; Encode</button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+      <div class="progress-txt" id="progTxt">...</div>
+    </div>
+    <div class="log-area" id="logArea"></div>
+  </div>
+</div>
+
+<div class="results-section">
+  <div class="empty-state" id="emptyState">
+    <div class="big">◎</div>
+    <p>Select embedding models and click <strong>Render &amp; Encode</strong>.<br>
+    Results: models across, projection methods (PCA, Sinusoidal fit) down.</p>
+    <p style="font-size:11px;opacity:0.5">Models run in-browser via transformers.js. First load downloads weights (cached after). Open this file in a browser tab if loading fails.</p>
+  </div>
+  <div class="results-table" id="resultsTable" style="display:none;"></div>
+</div>
+
+<script type="module">
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+const MODELS = [
+  { id:'Xenova/clip-vit-base-patch32',  name:'CLIP ViT-B/32',  size:'~340MB' },
+  { id:'Xenova/clip-vit-base-patch16',  name:'CLIP ViT-B/16',  size:'~340MB' },
+  { id:'Xenova/vit-base-patch16-224',   name:'ViT-B/16 (IN1k)',size:'~330MB' },
+  { id:'Xenova/mobilevit-small',        name:'MobileViT-S',    size:'~21MB'  },
+  { id:'Xenova/mobilevit-x-small',      name:'MobileViT-XS',   size:'~10MB'  },
+  { id:'Xenova/mobilevit-xx-small',     name:'MobileViT-XXS',  size:'~5MB'   },
+];
+
+const S = {
+  numFrames: 24,
+  selectedModels: new Set(['Xenova/clip-vit-base-patch32','Xenova/mobilevit-small']),
+  objType: 'creature',
+  frames: [],
+  results: {},
+  running: false,
+  currentAngle: 0,
+  vizCells: {},
+  completedModels: [],
+};
+
+// ══════════════════════════════════════════════════════════════
+// THREE.JS PREVIEW
+// ══════════════════════════════════════════════════════════════
+const pCanvas = document.getElementById('previewCanvas');
+const pRenderer = new THREE.WebGLRenderer({ canvas:pCanvas, antialias:true });
+pRenderer.setPixelRatio(2);
+pRenderer.setClearColor(0x0b0b14);
+
+const pScene = new THREE.Scene();
+const pCam = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+pScene.add(new THREE.AmbientLight(0x404060, 0.6));
+const dl1 = new THREE.DirectionalLight(0xffffff, 1.0); dl1.position.set(3,5,4); pScene.add(dl1);
+const dl2 = new THREE.DirectionalLight(0x6688ff, 0.4); dl2.position.set(-3,2,-2); pScene.add(dl2);
+
+const objGroup = new THREE.Group();
+pScene.add(objGroup);
+
+function buildCreature() {
+  const g = new THREE.Group();
+  const bm = new THREE.MeshStandardMaterial({color:0xf5d442,roughness:0.35});
+  const dk = new THREE.MeshStandardMaterial({color:0x222222,roughness:0.3});
+  const rd = new THREE.MeshStandardMaterial({color:0xff3344,roughness:0.3});
+  const wh = new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.3});
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.7,32,32),bm);
+  body.scale.set(1,1.1,0.85); g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.5,32,32),bm);
+  head.position.y=1.0; g.add(head);
+
+  const earG = new THREE.ConeGeometry(0.15,0.5,8);
+  const e1=new THREE.Mesh(earG,bm); e1.position.set(-0.25,1.55,0); e1.rotation.z=0.2; g.add(e1);
+  const e2=new THREE.Mesh(earG,bm); e2.position.set(0.25,1.55,0); e2.rotation.z=-0.2; g.add(e2);
+  const tipG=new THREE.ConeGeometry(0.1,0.2,8);
+  const t1=new THREE.Mesh(tipG,dk); t1.position.set(-0.28,1.75,0); t1.rotation.z=0.2; g.add(t1);
+  const t2=new THREE.Mesh(tipG,dk); t2.position.set(0.28,1.75,0); t2.rotation.z=-0.2; g.add(t2);
+
+  const eyG=new THREE.SphereGeometry(0.08,16,16);
+  const ey1=new THREE.Mesh(eyG,dk); ey1.position.set(-0.18,1.08,0.42); g.add(ey1);
+  const ey2=new THREE.Mesh(eyG,dk); ey2.position.set(0.18,1.08,0.42); g.add(ey2);
+  const ewG=new THREE.SphereGeometry(0.04,12,12);
+  const ew1=new THREE.Mesh(ewG,wh); ew1.position.set(-0.15,1.10,0.47); g.add(ew1);
+  const ew2=new THREE.Mesh(ewG,wh); ew2.position.set(0.21,1.10,0.47); g.add(ew2);
+
+  const chG=new THREE.SphereGeometry(0.1,16,16);
+  const ch1=new THREE.Mesh(chG,rd); ch1.position.set(-0.38,0.92,0.3); g.add(ch1);
+  const ch2=new THREE.Mesh(chG,rd); ch2.position.set(0.38,0.92,0.3); g.add(ch2);
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.04,12,12),dk); nose.position.set(0,0.95,0.48); g.add(nose);
+
+  const ts=new THREE.Shape();
+  ts.moveTo(0,0); ts.lineTo(0.15,0.3); ts.lineTo(-0.05,0.35); ts.lineTo(0.2,0.7);
+  ts.lineTo(0.05,0.7); ts.lineTo(-0.15,0.35); ts.lineTo(0.05,0.3); ts.lineTo(-0.05,0);
+  const tail=new THREE.Mesh(new THREE.ExtrudeGeometry(ts,{depth:0.06,bevelEnabled:true,bevelThickness:0.02,bevelSize:0.02}),bm);
+  tail.position.set(-0.03,0.1,-0.8); tail.rotation.x=-0.3; g.add(tail);
+
+  const fG=new THREE.SphereGeometry(0.18,16,16);
+  const f1=new THREE.Mesh(fG,bm); f1.position.set(-0.35,-0.65,0.15); f1.scale.set(1,0.5,1.3); g.add(f1);
+  const f2=new THREE.Mesh(fG,bm); f2.position.set(0.35,-0.65,0.15); f2.scale.set(1,0.5,1.3); g.add(f2);
+  g.position.y=-0.1;
+  return g;
+}
+
+function buildTeapot() {
+  const g=new THREE.Group();
+  const m=new THREE.MeshStandardMaterial({color:0x44aaff,roughness:0.3,metalness:0.2});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.7,32,32),m); body.scale.set(1,0.8,1); g.add(body);
+  const lid=new THREE.Mesh(new THREE.SphereGeometry(0.45,32,16,0,Math.PI*2,0,Math.PI/2),m); lid.position.y=0.55; g.add(lid);
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(0.1,16,16),m); knob.position.y=0.95; g.add(knob);
+  const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.15,0.7,16),m); sp.position.set(0.7,0.2,0); sp.rotation.z=-Math.PI/4; g.add(sp);
+  const h=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.06,16,32,Math.PI),m); h.position.set(-0.7,0.1,0); h.rotation.y=Math.PI/2; h.rotation.x=Math.PI/2; g.add(h);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.45,0.1,32),m); base.position.y=-0.55; g.add(base);
+  return g;
+}
+
+function buildKnot() {
+  const g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.TorusKnotGeometry(0.6,0.2,128,32,2,3),
+    new THREE.MeshStandardMaterial({color:0xff6b9d,roughness:0.25,metalness:0.4})));
+  return g;
+}
+
+function setObject(type) {
+  while(objGroup.children.length) objGroup.remove(objGroup.children[0]);
+  if(type==='creature') objGroup.add(buildCreature());
+  else if(type==='teapot') objGroup.add(buildTeapot());
+  else objGroup.add(buildKnot());
+}
+
+function renderAt(angle) {
+  const r=4.5, rad=angle*Math.PI/180;
+  pCam.position.set(Math.sin(rad)*r, 1.2, Math.cos(rad)*r);
+  pCam.lookAt(0,0.2,0);
+  const rect=pCanvas.parentElement.getBoundingClientRect();
+  pRenderer.setSize(rect.width, rect.height);
+  pRenderer.render(pScene,pCam);
+  document.getElementById('angleBadge').textContent=Math.round(angle%360)+'°';
+}
+
+// ══════════════════════════════════════════════════════════════
+// FRAME RENDERING
+// ══════════════════════════════════════════════════════════════
+function renderFrames() {
+  const off=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+  off.setPixelRatio(1); off.setClearColor(0x0b0b14); off.setSize(224,224);
+  const cam=new THREE.PerspectiveCamera(40,1,0.1,100);
+  S.frames=[];
+  const grid=document.getElementById('framesGrid');
+  grid.innerHTML='';
+
+  for(let i=0;i<S.numFrames;i++){
+    const angle=360/S.numFrames*i;
+    const rad=angle*Math.PI/180;
+    cam.position.set(Math.sin(rad)*4.5, 1.2, Math.cos(rad)*4.5);
+    cam.lookAt(0,0.2,0);
+    off.render(pScene,cam);
+    const url=off.domElement.toDataURL('image/png');
+    S.frames.push(url);
+
+    const th=document.createElement('div');
+    th.className='frame-thumb';
+    th.dataset.idx=i;
+    const img=document.createElement('img'); img.src=url;
+    const lbl=document.createElement('span'); lbl.className='frame-angle'; lbl.textContent=Math.round(angle)+'°';
+    th.append(img,lbl);
+    th.onclick=()=>{ S.currentAngle=angle; renderAt(angle); };
+    grid.appendChild(th);
+  }
+  off.dispose();
+}
+
+// ══════════════════════════════════════════════════════════════
+// PCA (power iteration)
+// ══════════════════════════════════════════════════════════════
+function pca3D(embeddings) {
+  const n=embeddings.length, d=embeddings[0].length;
+  const mean=new Float64Array(d);
+  for(let i=0;i<n;i++) for(let j=0;j<d;j++) mean[j]+=embeddings[i][j]/n;
+  const X=embeddings.map(e=>e.map((v,j)=>v-mean[j]));
+
+  const comps=[];
+  const D=X.map(r=>[...r]);
+  for(let c=0;c<3;c++){
+    let v=new Float64Array(d);
+    for(let i=0;i<d;i++) v[i]=Math.random()-0.5;
+    let nm=Math.sqrt(v.reduce((s,x)=>s+x*x,0)); v=v.map(x=>x/nm);
+    for(let iter=0;iter<300;iter++){
+      const Xv=D.map(row=>row.reduce((s,x,j)=>s+x*v[j],0));
+      const nv=new Float64Array(d);
+      for(let i=0;i<n;i++) for(let j=0;j<d;j++) nv[j]+=D[i][j]*Xv[i];
+      nm=Math.sqrt(nv.reduce((s,x)=>s+x*x,0));
+      if(nm<1e-12) break;
+      v=nv.map(x=>x/nm);
+    }
+    comps.push(Array.from(v));
+    for(let i=0;i<n;i++){
+      const p=D[i].reduce((s,x,j)=>s+x*v[j],0);
+      for(let j=0;j<d;j++) D[i][j]-=p*v[j];
+    }
+  }
+  return X.map(row=>comps.map(c=>row.reduce((s,x,j)=>s+x*c[j],0)));
+}
+
+// ══════════════════════════════════════════════════════════════
+// ELLIPSE FIT
+// Fit x_i ≈ cos(θ_i)·w1 + sin(θ_i)·w2 via OLS (well-determined: 2d params, nd obs)
+// Visualize on the ellipse plane + first residual PC as 3rd axis
+// Returns { points3d, r2 }
+// ══════════════════════════════════════════════════════════════
+function ellipseFit(embeddings) {
+  const n=embeddings.length, d=embeddings[0].length;
+
+  // Center
+  const mean=new Float64Array(d);
+  for(let i=0;i<n;i++) for(let j=0;j<d;j++) mean[j]+=embeddings[i][j]/n;
+  const X=embeddings.map(e=>e.map((v,j)=>v-mean[j]));
+
+  // Design matrix C (n×2): [cos(θ_i), sin(θ_i)]
+  const C=[];
+  for(let i=0;i<n;i++){
+    const th=2*Math.PI*i/n;
+    C.push([Math.cos(th), Math.sin(th)]);
+  }
+
+  // OLS: W = (C^T C)^{-1} C^T X  →  W is 2×d
+  // For evenly-spaced angles, C^T C = (n/2) I_2, so W = (2/n) C^T X
+  const w1=new Float64Array(d);
+  const w2=new Float64Array(d);
+  for(let j=0;j<d;j++){
+    let s1=0, s2=0;
+    for(let i=0;i<n;i++){ s1+=C[i][0]*X[i][j]; s2+=C[i][1]*X[i][j]; }
+    w1[j]=2*s1/n;
+    w2[j]=2*s2/n;
+  }
+
+  // Fitted values: X_hat[i] = cos(θ_i)*w1 + sin(θ_i)*w2
+  // Residuals: R[i] = X[i] - X_hat[i]
+  const residuals=[];
+  let ssRes=0, ssTot=0;
+  for(let i=0;i<n;i++){
+    const res=new Float64Array(d);
+    for(let j=0;j<d;j++){
+      const xhat=C[i][0]*w1[j]+C[i][1]*w2[j];
+      res[j]=X[i][j]-xhat;
+      ssRes+=res[j]*res[j];
+      ssTot+=X[i][j]*X[i][j];
+    }
+    residuals.push(res);
+  }
+  const r2=ssTot>0? Math.max(0, 1-ssRes/ssTot) : 0;
+
+  // Orthonormalize w1, w2 via Gram-Schmidt → u1, u2
+  let norm1=Math.sqrt(w1.reduce((s,x)=>s+x*x,0));
+  const u1=w1.map(x=>x/(norm1||1));
+
+  // w2_perp = w2 - (w2·u1)*u1
+  const dot21=w2.reduce((s,x,j)=>s+x*u1[j],0);
+  const w2p=w2.map((x,j)=>x-dot21*u1[j]);
+  let norm2p=Math.sqrt(w2p.reduce((s,x)=>s+x*x,0));
+  const u2=w2p.map(x=>x/(norm2p||1));
+
+  // First PC of residuals → u3 (via power iteration on residual covariance)
+  let v=new Float64Array(d);
+  for(let j=0;j<d;j++) v[j]=Math.random()-0.5;
+  // Orthogonalize v against u1, u2
+  function orthog(vec){
+    let d1=vec.reduce((s,x,j)=>s+x*u1[j],0);
+    let d2=vec.reduce((s,x,j)=>s+x*u2[j],0);
+    for(let j=0;j<d;j++) vec[j]-=d1*u1[j]+d2*u2[j];
+    return vec;
+  }
+  v=orthog(v);
+  let nv=Math.sqrt(v.reduce((s,x)=>s+x*x,0));
+  v=v.map(x=>x/(nv||1));
+
+  for(let iter=0;iter<100;iter++){
+    // Compute (R^T R) v via R(Rv)
+    const Rv=residuals.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+    const newV=new Float64Array(d);
+    for(let i=0;i<n;i++) for(let j=0;j<d;j++) newV[j]+=residuals[i][j]*Rv[i];
+    // Orthogonalize against u1, u2
+    const ov=orthog(newV);
+    nv=Math.sqrt(ov.reduce((s,x)=>s+x*x,0));
+    if(nv<1e-12) break;
+    v=ov.map(x=>x/nv);
+  }
+  const u3=v;
+
+  // Project each x_i onto [u1, u2, u3]
+  const raw=X.map(xi=>[
+    xi.reduce((s,x,j)=>s+x*u1[j],0),
+    xi.reduce((s,x,j)=>s+x*u2[j],0),
+    xi.reduce((s,x,j)=>s+x*u3[j],0),
+  ]);
+
+  // Rescale axes so ellipse plane has equal variance, residual axis dampened
+  // This is still a linear transform — just makes the ring visually readable
+  const std=[0,1,2].map(ax=>{
+    const vals=raw.map(p=>p[ax]);
+    const mu=vals.reduce((s,v)=>s+v,0)/n;
+    return Math.sqrt(vals.reduce((s,v)=>s+(v-mu)**2,0)/n) || 1;
+  });
+  // Target: axes 0,1 → unit variance, axis 2 → 0.4× (dampen residual)
+  const targetStd=[1, 1, 0.4];
+  const points3d=raw.map(p=>p.map((v,ax)=>v/std[ax]*targetStd[ax]));
+
+  return { points3d, r2 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// RING SCORE
+// ══════════════════════════════════════════════════════════════
+function ringScore(pts) {
+  const n=pts.length; if(n<4) return 0;
+  const cx=pts.reduce((s,p)=>s+p[0],0)/n;
+  const cy=pts.reduce((s,p)=>s+p[1],0)/n;
+  const cz=pts.reduce((s,p)=>s+p[2],0)/n;
+  const c=pts.map(p=>[p[0]-cx,p[1]-cy,p[2]-cz]);
+  const dists=c.map(p=>Math.sqrt(p[0]**2+p[1]**2+p[2]**2));
+  const md=dists.reduce((s,d)=>s+d,0)/n;
+  const sd=Math.sqrt(dists.reduce((s,d)=>s+(d-md)**2,0)/n);
+  const radiusScore=md>0?Math.max(0,1-(sd/md)*3):0;
+
+  const angles=c.map(p=>Math.atan2(p[1],p[0]));
+  let orderScore=0;
+  const expStep=2*Math.PI/n;
+  for(let i=0;i<n;i++){
+    let diff=angles[(i+1)%n]-angles[i];
+    while(diff>Math.PI) diff-=2*Math.PI;
+    while(diff<-Math.PI) diff+=2*Math.PI;
+    orderScore+=Math.max(0,1-Math.abs(Math.abs(diff)-expStep)/expStep);
+  }
+  orderScore/=n;
+  return Math.round((radiusScore*0.5+orderScore*0.5)*100);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 3D VISUALIZATION (per cell)
+// ══════════════════════════════════════════════════════════════
+function createVizCell(containerId, points3d) {
+  const container=document.getElementById(containerId);
+  if(!container) return null;
+
+  const w=container.clientWidth||280, h=container.clientHeight||280;
+  const ren=new THREE.WebGLRenderer({antialias:true});
+  ren.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  ren.setSize(w,h);
+  ren.setClearColor(0x0b0b14);
+  container.innerHTML='';
+  container.appendChild(ren.domElement);
+
+  const sc=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(50,w/h,0.01,100);
+
+  let maxD=0;
+  for(const p of points3d){ const d=Math.sqrt(p[0]**2+p[1]**2+p[2]**2); if(d>maxD) maxD=d; }
+  const scale=maxD>0?2/maxD:1;
+  const n=points3d.length;
+  const grp=new THREE.Group();
+
+  const pointMeshes=[];
+  for(let i=0;i<n;i++){
+    const t=i/n;
+    const col=new THREE.Color().setHSL(t,0.65,0.55);
+    const sph=new THREE.Mesh(
+      new THREE.SphereGeometry(0.05,10,10),
+      new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:0.3,roughness:0.3})
+    );
+    sph.position.set(points3d[i][0]*scale, points3d[i][1]*scale, points3d[i][2]*scale);
+    grp.add(sph);
+    pointMeshes.push(sph);
+  }
+
+  // Lines
+  const lp=[],lc=[];
+  for(let i=0;i<n;i++){
+    const c=new THREE.Color().setHSL(i/n,0.5,0.4);
+    const ni=(i+1)%n;
+    lp.push(points3d[i][0]*scale,points3d[i][1]*scale,points3d[i][2]*scale,
+            points3d[ni][0]*scale,points3d[ni][1]*scale,points3d[ni][2]*scale);
+    lc.push(c.r,c.g,c.b,c.r,c.g,c.b);
+  }
+  const lg=new THREE.BufferGeometry();
+  lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+  lg.setAttribute('color',new THREE.Float32BufferAttribute(lc,3));
+  grp.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.3})));
+
+  // Highlight
+  const hlMat=new THREE.MeshStandardMaterial({color:0xff4466,emissive:0xff4466,emissiveIntensity:0.9,transparent:true,opacity:0.95});
+  const hlMesh=new THREE.Mesh(new THREE.SphereGeometry(0.11,16,16),hlMat);
+  hlMesh.position.copy(pointMeshes[0].position);
+  grp.add(hlMesh);
+
+  // Glow ring around highlight
+  const glowMesh=new THREE.Mesh(
+    new THREE.RingGeometry(0.13,0.18,24),
+    new THREE.MeshBasicMaterial({color:0xff4466,transparent:true,opacity:0.5,side:THREE.DoubleSide})
+  );
+  glowMesh.position.copy(pointMeshes[0].position);
+  grp.add(glowMesh);
+
+  sc.add(grp);
+  sc.add(new THREE.AmbientLight(0x404060,0.8));
+  const pl=new THREE.PointLight(0xffffff,0.6); pl.position.set(5,5,5); sc.add(pl);
+
+  let drag=false, prev={x:0,y:0};
+  let sph={theta:Math.PI/4,phi:Math.PI/3.5,r:5};
+
+  function updateCam(){
+    cam.position.set(
+      sph.r*Math.sin(sph.phi)*Math.cos(sph.theta),
+      sph.r*Math.cos(sph.phi),
+      sph.r*Math.sin(sph.phi)*Math.sin(sph.theta));
+    cam.lookAt(0,0,0);
+  }
+
+  const el=ren.domElement;
+  el.addEventListener('mousedown',e=>{drag=true;cellData._userDrag=true;prev={x:e.clientX,y:e.clientY};});
+  el.addEventListener('mousemove',e=>{
+    if(!drag) return;
+    sph.theta-=(e.clientX-prev.x)*0.01;
+    sph.phi=Math.max(0.1,Math.min(Math.PI-0.1,sph.phi+(e.clientY-prev.y)*0.01));
+    prev={x:e.clientX,y:e.clientY}; updateCam();
+  });
+  el.addEventListener('mouseup',()=>{drag=false;});
+  el.addEventListener('mouseleave',()=>{drag=false;});
+  el.addEventListener('wheel',e=>{sph.r=Math.max(2,Math.min(12,sph.r+e.deltaY*0.005));updateCam();e.preventDefault();},{passive:false});
+
+  el.addEventListener('touchstart',e=>{if(e.touches.length===1){drag=true;cellData._userDrag=true;prev={x:e.touches[0].clientX,y:e.touches[0].clientY};}});
+  el.addEventListener('touchmove',e=>{if(!drag||e.touches.length!==1)return;sph.theta-=(e.touches[0].clientX-prev.x)*0.01;sph.phi=Math.max(0.1,Math.min(Math.PI-0.1,sph.phi+(e.touches[0].clientY-prev.y)*0.01));prev={x:e.touches[0].clientX,y:e.touches[0].clientY};updateCam();e.preventDefault();},{passive:false});
+  el.addEventListener('touchend',()=>{drag=false;});
+
+  updateCam();
+
+  const cellData={renderer:ren,scene:sc,camera:cam,spherical:sph,hlMesh,glowMesh,pointMeshes,_userDrag:false};
+
+  function anim(){
+    requestAnimationFrame(anim);
+    if(!cellData._userDrag){ sph.theta+=0.003; updateCam(); }
+    // Glow ring always faces camera
+    glowMesh.lookAt(cam.position);
+    ren.render(sc,cam);
+  }
+  anim();
+  return cellData;
+}
+
+// ══════════════════════════════════════════════════════════════
+// RESULTS GRID
+// ══════════════════════════════════════════════════════════════
+function buildResultsGrid() {
+  if(!S.completedModels.length) return;
+  const table=document.getElementById('resultsTable');
+  table.style.display='grid';
+  document.getElementById('emptyState').style.display='none';
+
+  const nModels=S.completedModels.length;
+  table.style.gridTemplateColumns=`36px repeat(${nModels}, 1fr)`;
+  table.innerHTML='';
+
+  // Corner
+  table.appendChild(Object.assign(document.createElement('div'),{className:'corner'}));
+
+  // Col headers
+  for(const mid of S.completedModels){
+    const info=MODELS.find(m=>m.id===mid);
+    const res=S.results[mid];
+    const ch=document.createElement('div');
+    ch.className='col-header';
+    ch.innerHTML=`${info.name}<span class="score">PCA ${res.pcaScore}% · Ellipse R² ${res.ellR2}%</span>`;
+    table.appendChild(ch);
+  }
+
+  // Row: PCA
+  const rh1=document.createElement('div'); rh1.className='row-header'; rh1.textContent='PCA';
+  table.appendChild(rh1);
+  for(const mid of S.completedModels){
+    const cell=document.createElement('div'); cell.className='viz-cell';
+    cell.id='vp-'+mid.replace(/\//g,'-');
+    table.appendChild(cell);
+  }
+
+  // Row: Sinusoidal
+  const rh2=document.createElement('div'); rh2.className='row-header'; rh2.textContent='ELLIPSE';
+  table.appendChild(rh2);
+  for(const mid of S.completedModels){
+    const cell=document.createElement('div'); cell.className='viz-cell';
+    cell.id='ve-'+mid.replace(/\//g,'-');
+    table.appendChild(cell);
+  }
+
+  // Build viz after layout
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    S.vizCells={};
+    for(const mid of S.completedModels){
+      const res=S.results[mid];
+      const pk='vp-'+mid.replace(/\//g,'-');
+      const ek='ve-'+mid.replace(/\//g,'-');
+      S.vizCells[pk]=createVizCell(pk, res.pca3d);
+      S.vizCells[ek]=createVizCell(ek, res.ell3d);
+    }
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════════════════════════
+function buildModelList(){
+  const list=document.getElementById('modelList');
+  list.innerHTML='';
+  for(const m of MODELS){
+    const d=document.createElement('div');
+    d.className='model-item'+(S.selectedModels.has(m.id)?' sel':'');
+    d.innerHTML=`<div class="ck">${S.selectedModels.has(m.id)?'✓':''}</div>
+      <span class="mname">${m.name}</span><span class="msize">${m.size}</span>
+      <div class="status-dot" id="st-${m.id.replace(/\//g,'-')}"></div>`;
+    d.onclick=()=>{
+      if(S.running) return;
+      if(S.selectedModels.has(m.id)) S.selectedModels.delete(m.id); else S.selectedModels.add(m.id);
+      d.classList.toggle('sel');
+      d.querySelector('.ck').textContent=S.selectedModels.has(m.id)?'✓':'';
+    };
+    list.appendChild(d);
+  }
+}
+
+function log(msg,type=''){
+  const a=document.getElementById('logArea');
+  const e=document.createElement('div'); e.className=type; e.textContent=msg;
+  a.appendChild(e); a.scrollTop=a.scrollHeight;
+}
+function prog(pct,txt){
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progTxt').textContent=txt;
+}
+function setDot(mid,cls){
+  const d=document.getElementById('st-'+mid.replace(/\//g,'-'));
+  if(d) d.className='status-dot '+cls;
+}
+
+function setupBtns(id,cb){
+  document.getElementById(id).addEventListener('click',e=>{
+    const b=e.target.closest('.btn-sm'); if(!b||S.running) return;
+    document.querySelectorAll('#'+id+' .btn-sm').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); cb(b.dataset.v);
+  });
+}
+setupBtns('objSelect',v=>{S.objType=v; setObject(v); renderAt(S.currentAngle);});
+setupBtns('frameSelect',v=>{S.numFrames=parseInt(v);});
+
+// ══════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════
+document.getElementById('runBtn').addEventListener('click', async ()=>{
+  if(S.running) return;
+  if(!S.selectedModels.size){ log('Select at least one model','e'); return; }
+
+  S.running=true;
+  S.completedModels=[];
+  S.vizCells={};
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('progressWrap').classList.add('vis');
+  document.getElementById('resultsTable').style.display='none';
+  document.getElementById('resultsTable').innerHTML='';
+  document.getElementById('emptyState').style.display='none';
+
+  log('Rendering '+S.numFrames+' frames...','i');
+  prog(5,'Rendering...');
+  renderFrames();
+  log('Frames done','s');
+
+  const models=[...S.selectedModels];
+
+  for(let mi=0;mi<models.length;mi++){
+    const mid=models[mi];
+    const info=MODELS.find(m=>m.id===mid);
+    setDot(mid,'run');
+    log(`Loading ${info.name}...`,'i');
+    prog(10+(mi/models.length)*85, `Loading ${info.name}...`);
+
+    try {
+      let extractor;
+      for(const task of ['image-feature-extraction','feature-extraction']){
+        try {
+          extractor=await pipeline(task, mid, {
+            progress_callback: p=>{
+              if(p.status==='progress'&&p.progress)
+                prog(10+(mi/models.length)*85+(p.progress/100)*(30/models.length),
+                  `${info.name}: ${Math.round(p.progress)}%`);
+            }
+          });
+          log(`  task: ${task}`,'s');
+          break;
+        } catch(e){ extractor=null; }
+      }
+      if(!extractor) throw new Error('All tasks failed');
+
+      log(`Encoding ${S.numFrames} frames...`,'i');
+      const embs=[];
+      for(let fi=0;fi<S.frames.length;fi++){
+        prog(10+((mi+0.4)/models.length)*85+(fi/S.frames.length)*(40/models.length),
+          `${info.name}: frame ${fi+1}/${S.frames.length}`);
+        const out=await extractor(S.frames[fi],{pooling:'mean',normalize:true});
+        let d=out.tolist();
+        while(Array.isArray(d)&&Array.isArray(d[0])&&d.length===1) d=d[0];
+        if(Array.isArray(d[0])) d=d[0];
+        embs.push(d);
+        if(fi===0) log(`  dim=${d.length}`,'i');
+      }
+
+      log('PCA...','i');
+      const p3=pca3D(embs);
+      const ps=ringScore(p3);
+
+      log('Ellipse fit...','i');
+      const ef=ellipseFit(embs);
+      const ellR2=Math.round(ef.r2*100);
+
+      S.results[mid]={embeddings:embs, pca3d:p3, ell3d:ef.points3d, pcaScore:ps, ellR2};
+      S.completedModels.push(mid);
+      setDot(mid,'done');
+      log(`${info.name}: PCA ring=${ps}% Ellipse R²=${ellR2}%`,'s');
+
+    } catch(err){
+      log(`Error ${info.name}: ${err.message}`,'e');
+      setDot(mid,'err');
+    }
+  }
+
+  buildResultsGrid();
+  prog(100,'Done');
+  S.running=false;
+  document.getElementById('runBtn').disabled=false;
+  log('Complete','s');
+});
+
+// ══════════════════════════════════════════════════════════════
+// SYNC LOOP — highlight current rotation frame everywhere
+// ══════════════════════════════════════════════════════════════
+let previewHover=false;
+pCanvas.parentElement.addEventListener('mouseenter',()=>{previewHover=true;});
+pCanvas.parentElement.addEventListener('mouseleave',()=>{previewHover=false;});
+
+function mainLoop(){
+  requestAnimationFrame(mainLoop);
+
+  if(!previewHover&&!S.running){
+    S.currentAngle=(S.currentAngle+0.25)%360;
+    renderAt(S.currentAngle);
+  }
+
+  if(S.frames.length>0){
+    const fi=Math.round((S.currentAngle%360)/360*S.numFrames)%S.numFrames;
+
+    // Highlight frame thumb
+    document.querySelectorAll('.frame-thumb').forEach((t,i)=>{
+      t.classList.toggle('highlighted', i===fi);
+    });
+
+    // Update highlight spheres in all viz cells
+    for(const cell of Object.values(S.vizCells)){
+      if(!cell||!cell.pointMeshes||!cell.pointMeshes[fi]) continue;
+      const pos=cell.pointMeshes[fi].position;
+      cell.hlMesh.position.copy(pos);
+      cell.glowMesh.position.copy(pos);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+buildModelList();
+setObject('creature');
+renderAt(0);
+mainLoop();
+</script>
+</body>
+</html>
